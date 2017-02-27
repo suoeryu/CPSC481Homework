@@ -6,25 +6,50 @@
 using namespace std;
 
 int main(int argc, char *argv[]) {
+    
+    //Initialize a new ROS node
     ros::init(argc, argv, "box_turtle");
+    
+    //Main access point to communications with ROS system.
     ros::NodeHandle n;
+    
+    //Publishing to a message of type geometry_msgs::Twist on topic /turtle1/cmd_vel
+    //Max of 10 messages in buffer
     velocity_publisher = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel", 10);
+    
+    //Subscribing to /turtle1/pose topic with master
+    //Max of 10 messages in queue.
+    //ROS will call poseCallBack when a new message arrives.
     pose_subscriber = n.subscribe("/turtle1/pose", 10, poseCallback);
 
     geometry_msgs::Twist vel_msg;
+    //Initialize Linear and Angular Velocities to 0
     vel_msg.linear.x = 0;
     vel_msg.linear.y = 0;
     vel_msg.linear.z = 0;
     vel_msg.angular.x = 0;
     vel_msg.angular.y = 0;
     vel_msg.angular.z = 0;
+    
+    //Print the message 
     cout << turtlesim_pose.x << turtlesim_pose.y << turtlesim_pose.theta << endl;
-    ros::Rate loop_rate(10);
+    
+    //Frequency of the loop is 10Hz
+    ros::Rate loop_rate(10); 
+    
     for(int i = 0; i < 4; i++) {
+        
+        //Publish the message
         velocity_publisher.publish(vel_msg);
+        
+        //This function necessary to allow ROS processing of incoming messages
         ros::spinOnce();
+        
+        //Enforces loop rate by sleeping the cycle
         loop_rate.sleep();
     }
+    
+    //Print the message 
     cout << turtlesim_pose.x << turtlesim_pose.y << turtlesim_pose.theta << endl;
 
     Heuristic heuristic;
@@ -38,11 +63,14 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+//In ROS callback is like a message handler. 
+//Whenever a message arrives ROS will call poseCallBack and pass it the new message.
 void poseCallback(const turtlesim::Pose::ConstPtr & pose_message) {
     turtlesim_pose.x = pose_message->x;
     turtlesim_pose.y = pose_message->y;
     turtlesim_pose.theta = pose_message->theta;
 }
+
 
 double move_forward(double speed, double distance) {
     double start_x = turtlesim_pose.x;
