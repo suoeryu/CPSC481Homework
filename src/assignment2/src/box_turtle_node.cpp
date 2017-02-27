@@ -11,21 +11,17 @@ int main(int argc, char *argv[]) {
     velocity_publisher = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel", 10);
     pose_subscriber = n.subscribe("/turtle1/pose", 10, poseCallback);
 
-    geometry_msgs::Twist vel_msg;
-    vel_msg.linear.x = 0;
-    vel_msg.linear.y = 0;
-    vel_msg.linear.z = 0;
-    vel_msg.angular.x = 0;
-    vel_msg.angular.y = 0;
-    vel_msg.angular.z = 0;
-    cout << turtlesim_pose.x << turtlesim_pose.y << turtlesim_pose.theta << endl;
+    ros::spinOnce();
+    /* cout << turtlesim_pose.x << turtlesim_pose.y << turtlesim_pose.theta << endl; */
+    // I don't know why, but it seems that the ros::spinOnce must be run some times
+    // before turtlesim_pose get correct value
     ros::Rate loop_rate(10);
-    for(int i = 0; i < 4; i++) {
-        velocity_publisher.publish(vel_msg);
+    int count = 5;
+    for (int i = 0; i < count; ++i) {
         ros::spinOnce();
         loop_rate.sleep();
     }
-    cout << turtlesim_pose.x << turtlesim_pose.y << turtlesim_pose.theta << endl;
+    /* cout << turtlesim_pose.x << turtlesim_pose.y << turtlesim_pose.theta << endl; */
 
     Heuristic heuristic;
     heuristic.calculate_path();
