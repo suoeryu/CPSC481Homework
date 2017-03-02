@@ -22,26 +22,19 @@ int main(int argc, char *argv[]) {
     //ROS will call poseCallBack when a new message arrives.
     pose_subscriber = n.subscribe("/turtle1/pose", 10, poseCallback);
 
-    ros::spinOnce();
-    /* cout << turtlesim_pose.x << turtlesim_pose.y << turtlesim_pose.theta << endl; */
     // I don't know why, but it seems that the ros::spinOnce must be run some times
     // before turtlesim_pose get correct value
     ros::Rate loop_rate(10);
-    int count = 5;
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < 5; ++i) {
         ros::spinOnce();
         //Enforces loop rate by sleeping the cycle
         loop_rate.sleep();
     }
-    /* cout << turtlesim_pose.x << turtlesim_pose.y << turtlesim_pose.theta << endl; */
     Heuristic heuristic;
+    // calculate the path of turtle
     heuristic.calculate_path();
-    for(vector<TurtlePosition*>::iterator it = heuristic.getPath().begin();
-            it != heuristic.getPath().end();
-            it++
-       ) {
-        (*it)->move();
-    }
+    // move turtle follow the path
+    heuristic.move_turtle();
     return 0;
 }
 
@@ -53,7 +46,8 @@ void poseCallback(const turtlesim::Pose::ConstPtr & pose_message) {
     turtlesim_pose.theta = pose_message->theta;
 }
 
-
+// make the turtle move forward using given speed and distance
+// return the actual distance the turtle moved
 double move_forward(double speed, double distance) {
     double start_x = turtlesim_pose.x;
     double start_y = turtlesim_pose.y;
@@ -76,7 +70,6 @@ double move_forward(double speed, double distance) {
         current_distance = speed * (t1 - t0);
         ros::spinOnce();
         loop_rate.sleep();
-        //cout<<(t1-t0)<<", "<<current_distance <<", "<<distance<<endl;
     } while(current_distance < expect_distance);
     vel_msg.linear.x = 0;
     velocity_publisher.publish(vel_msg);
@@ -88,7 +81,8 @@ double move_forward(double speed, double distance) {
     return sqrt(pow(end_x - start_x, 2) + pow(end_y - start_y, 2));
 }
 
-double rotate(double speed, double relative_angle) {
+// Rotate the turtle using given speed and radian, return the actual rotated ridian
+double rotate(double speed, double relative_radian) {
     double start_theta = turtlesim_pose.theta;
     speed = abs(speed);
 
@@ -98,9 +92,9 @@ double rotate(double speed, double relative_angle) {
     vel_msg.linear.z = 0;
     vel_msg.angular.x = 0;
     vel_msg.angular.y = 0;
-    vel_msg.angular.z = relative_angle < 0 ? -speed : speed;
+    vel_msg.angular.z = relative_radian < 0 ? -speed : speed;
 
-    double expect_rotation = abs(relative_angle);
+    double expect_rotation = abs(relative_radian);
     double current_rotation = 0.0;
     double t0 = ros::Time::now().toSec();
     ros::Rate loop_rate(100);
@@ -115,84 +109,75 @@ double rotate(double speed, double relative_angle) {
     vel_msg.angular.z = 0;
     velocity_publisher.publish(vel_msg);
     ros::spinOnce();
-    ros::Rate r(0.5);
-    /* r.sleep(); */
-    /* cout << current_rotation << endl; */
     double end_theta = turtlesim_pose.theta;
-    if(relative_angle > 0 && end_theta < start_theta) {
+    if(relative_radian > 0 && end_theta < start_theta) {
         return end_theta + 2 * PI - start_theta;
-    } else if ( relative_angle < 0 && end_theta > start_theta ) {
+    } else if ( relative_radian < 0 && end_theta > start_theta ) {
         return end_theta - 2 * PI - start_theta;
     } else {
         return end_theta - start_theta;
     }
 }
 
-TurtlePosition::TurtlePosition(TurtlePosition& previous_pos, Action action) {
-    relative_x = previous_pos.relative_x;
-    relative_y = previous_pos.relative_y;
-    direction = previous_pos.direction;
+double Coordinate::getDistance(const Coordinate& other) const {
+    return sqrt(pow(x - other.x, 2) + pow(y - other.y, 2));
+}
+
+void Coordinate::add(double x_value, double y_value) {
+    x += x_value;
+    y += y_value;
+}
+
+TurtleState::TurtleState(Coordinate& goal)
+    : relative_coordinate(0, 0), goal_coordinate(goal),
+      rotative_theta(0), direction(East), path_length(0),
+      pre_state_ptr(NULL) {};
+
+TurtleState::TurtleState(TurtleState* parent_ptr, Action action)
+    : relative_coordinate(parent_ptr->relative_coordinate),
+      goal_coordinate(parent_ptr->goal_coordinate),
+      direction(parent_ptr->direction), pre_state_ptr(parent_ptr) {
     switch (action) {
     case GoStraight:
         rotative_theta = 0;
         break;
     case TurnLeft:
         rotative_theta = PI / 2;
-        direction = (direction + 1) % 4;
+        direction = static_cast<Direction>((int(direction) + 1) % 4);
         break;
     case TurnRight:
         rotative_theta = -PI / 2;
-        direction = (direction - 1 + 4) % 4;
+        direction = static_cast<Direction>((int(direction) - 1 + 4) % 4);
         break;
     default:
         break;
     }
     switch (direction) {
-    case 0:
-        relative_x += x_unit;
-        path_length = previous_pos.path_length + x_unit;
+    case East:
+        relative_coordinate.add(x_unit, 0);
+        path_length = parent_ptr->path_length + x_unit;
         break;
-    case 1:
-        relative_y -= y_unit;
-        path_length = previous_pos.path_length + y_unit;
+    case North:
+        relative_coordinate.add(0, -y_unit);
+        path_length = parent_ptr->path_length + y_unit;
         break;
-    case 2:
-        relative_x -= x_unit;
-        path_length = previous_pos.path_length + x_unit;
+    case West:
+        relative_coordinate.add(-x_unit, 0);
+        path_length = parent_ptr->path_length + x_unit;
         break;
-    case 3:
-        relative_y += y_unit;
-        path_length = previous_pos.path_length + y_unit;
+    case South:
+        relative_coordinate.add(0, y_unit);
+        path_length = parent_ptr->path_length + y_unit;
         break;
     default:
         break;
     }
-    /* cout << "New Position: x->" << relative_x */
-    /*      << ", y->" << relative_y */
-    /*      << ", Direction->" << direction */
-    /*      << ", theta->" << rotative_theta */
-    /*      << ", path_length->" << path_length << endl; */
 }
 
-vector<TurtlePosition> & TurtlePosition::getChildren() {
-    if(children.empty()) {
-        if(relative_x == 0.0 && relative_y == 0.0) {
-            TurtlePosition p(*this, GoStraight);
-            children.push_back(p);
-        } else {
-            TurtlePosition pr(*this, TurnRight);
-            TurtlePosition p(*this, GoStraight);
-            TurtlePosition pl(*this, TurnLeft);
-            children.push_back(pr);
-            children.push_back(p);
-            children.push_back(pl);
-        }
-    }
-    return children;
-}
-
-void TurtlePosition::move() {
+void TurtleState::move() {
+    // rotate the turtle if needed
     if(rotative_theta != 0) {
+        // the angle rotate function rotated does not exactly same as we expect, use a progress strategy
         double remain_rotation = rotative_theta;
         while(abs(remain_rotation) > 0.000001) {
             double rotate_speed = remain_rotation * 2;
@@ -200,6 +185,7 @@ void TurtlePosition::move() {
             /* cout << "Remain Rotation: " << remain_rotation << endl; */
         }
     }
+    // the distance move_forword function moved does not exactly same as we expect, use a progress strategy
     double speed = 1;
     double remain_distance = direction % 2 ? y_unit : x_unit, current_distance = 0;
     while(remain_distance > 0) {
@@ -209,48 +195,65 @@ void TurtlePosition::move() {
     }
 }
 
-double TurtlePosition::getStraightDistance(TurtlePosition& pos) {
-    return sqrt(pow(relative_x - pos.relative_x, 2) + pow(relative_y - pos.relative_y, 2));
+double TurtleState::getStraightDistanceToGoal() const {
+    return relative_coordinate.getDistance(goal_coordinate);
 }
 
-double Heuristic::g(TurtlePosition& pos) {
-    /* cout << "Path Length: " << pos.getPathLength() << endl; */
-    return pos.getPathLength();
+double Heuristic::g(const TurtleState * state_ptr) {
+    return state_ptr->getPathLength();
 }
 
-double Heuristic::h(TurtlePosition& pos) {
-    /* cout << "Straight Distance: " << pos.getStraightDistance(orig) << endl; */
-    return pos.getStraightDistance(orig);
+double Heuristic::h(const TurtleState * state_ptr) {
+    return state_ptr->getStraightDistanceToGoal();
+}
+
+Heuristic::Heuristic(): goal_coordinate(0, 0) {
+    orig_state_ptr = new TurtleState(goal_coordinate);
+    // when turtle at original position, the only action is go straight
+    open_state_ptr_list.push(new TurtleState(orig_state_ptr, GoStraight));
+    closed_state_ptr_list.push_back(orig_state_ptr);
+}
+
+Heuristic::~Heuristic() {
+    orig_state_ptr = NULL;
+    for(vector<TurtleState*>::iterator it = closed_state_ptr_list.begin();
+            it != closed_state_ptr_list.end();
+            ++it) {
+        delete *it;
+    }
+    while(!open_state_ptr_list.empty()) {
+        delete open_state_ptr_list.top();
+        open_state_ptr_list.pop();
+    }
 }
 
 void Heuristic::calculate_path() {
-    double min_cost;
-    TurtlePosition* min_cost_pos = NULL;
-    for(vector<TurtlePosition>::iterator it = orig.getChildren().begin();
-            it != orig.getChildren().end(); it++) {
-        double cost = g(*it) + h(*it);
-        /* cout << "Cost: " << cost << endl; */
-        if(min_cost_pos == NULL || min_cost > cost) {
-            min_cost = cost;
-            min_cost_pos = &(*it);
+    if(path.empty()) {
+        TurtleState * current_state_ptr = open_state_ptr_list.top();
+        open_state_ptr_list.pop();
+        while(current_state_ptr->getStraightDistanceToGoal() > 0) {
+            open_state_ptr_list.push(new TurtleState(current_state_ptr, TurnRight));
+            open_state_ptr_list.push(new TurtleState(current_state_ptr, GoStraight));
+            open_state_ptr_list.push(new TurtleState(current_state_ptr, TurnLeft));
+            closed_state_ptr_list.push_back(current_state_ptr);
+            current_state_ptr = open_state_ptr_list.top();
+            open_state_ptr_list.pop();
         }
-        /* cout << "Min Cost: " << min_cost << endl << endl; */
+        closed_state_ptr_list.push_back(current_state_ptr);
+        while(current_state_ptr->getParentState()) {
+            path.insert(path.begin(), current_state_ptr);
+            current_state_ptr = current_state_ptr->getParentState();
+        }
     }
-    path.push_back(min_cost_pos);
-    while((*path.rbegin()) -> getStraightDistance(orig) > 0) {
-        min_cost_pos = NULL;
-        TurtlePosition* p = *path.rbegin();
-        for(vector<TurtlePosition>::iterator it = p -> getChildren().begin();
-                it != p -> getChildren().end();
-                it++) {
-            double cost = g(*it) + h(*it);
-            /* cout << "Cost: " << cost << endl; */
-            if(min_cost_pos == NULL || min_cost > cost) {
-                min_cost = cost;
-                min_cost_pos = &(*it);
-            }
-            /* cout << "Min Cost: " << min_cost << endl; */
-        }
-        path.push_back(min_cost_pos);
+}
+
+void Heuristic::move_turtle() {
+    if(path.empty()){
+        calculate_path();
+    }
+    for(vector<TurtleState*>::iterator it = path.begin();
+            it != path.end();
+            it++) {
+        (*it)->move();
     }
 }
