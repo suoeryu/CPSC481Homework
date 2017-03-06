@@ -1,6 +1,6 @@
 build
 devel
 .catkin_workspace
-src/Session.vim
+Session.vim
 src/CMakeLists.txt
 src/assignment2/assignment2_node.launch

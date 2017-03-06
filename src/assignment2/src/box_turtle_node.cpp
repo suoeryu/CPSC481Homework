@@ -231,7 +231,7 @@ void Heuristic::calculate_path() {
     if(path.empty()) {
         TurtleState * current_state_ptr = open_state_ptr_list.top();
         open_state_ptr_list.pop();
-        while(current_state_ptr->getStraightDistanceToGoal() > 0) {
+        while(h(current_state_ptr) > 0) {
             open_state_ptr_list.push(new TurtleState(current_state_ptr, TurnRight));
             open_state_ptr_list.push(new TurtleState(current_state_ptr, GoStraight));
             open_state_ptr_list.push(new TurtleState(current_state_ptr, TurnLeft));
@@ -248,7 +248,7 @@ void Heuristic::calculate_path() {
 }
 
 void Heuristic::move_turtle() {
-    if(path.empty()){
+    if(path.empty()) {
         calculate_path();
     }
     for(vector<TurtleState*>::iterator it = path.begin();
