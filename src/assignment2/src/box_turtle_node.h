@@ -6,7 +6,7 @@
 
 #pragma once
 
-enum Action { TurnLeft, TurnRight, GoStraight };
+enum Action { TurnLeft, TurnRight, GoAhead };
 enum Direction {East = 0, North, West, South};
 
 const double y_unit = 2;
@@ -68,7 +68,7 @@ public:
         return pre_state_ptr;
     }
 
-    double getStraightDistanceToGoal() const;
+    double getEuclideanDistanceToGoal() const;
 
     // Move Turtle to this state from previous state
     void move();

@@ -138,7 +138,7 @@ TurtleState::TurtleState(TurtleState* parent_ptr, Action action)
       goal_coordinate(parent_ptr->goal_coordinate),
       direction(parent_ptr->direction), pre_state_ptr(parent_ptr) {
     switch (action) {
-    case GoStraight:
+    case GoAhead:
         rotative_theta = 0;
         break;
     case TurnLeft:
@@ -195,7 +195,7 @@ void TurtleState::move() {
     }
 }
 
-double TurtleState::getStraightDistanceToGoal() const {
+double TurtleState::getEuclideanDistanceToGoal() const {
     return relative_coordinate.getDistance(goal_coordinate);
 }
 
@@ -204,13 +204,13 @@ double Heuristic::g(const TurtleState * state_ptr) {
 }
 
 double Heuristic::h(const TurtleState * state_ptr) {
-    return state_ptr->getStraightDistanceToGoal();
+    return state_ptr->getEuclideanDistanceToGoal();
 }
 
 Heuristic::Heuristic(): goal_coordinate(0, 0) {
     orig_state_ptr = new TurtleState(goal_coordinate);
     // when turtle at original position, the only action is go straight
-    open_state_ptr_list.push(new TurtleState(orig_state_ptr, GoStraight));
+    open_state_ptr_list.push(new TurtleState(orig_state_ptr, GoAhead));
     closed_state_ptr_list.push_back(orig_state_ptr);
 }
 
@@ -233,7 +233,7 @@ void Heuristic::calculate_path() {
         open_state_ptr_list.pop();
         while(h(current_state_ptr) > 0) {
             open_state_ptr_list.push(new TurtleState(current_state_ptr, TurnRight));
-            open_state_ptr_list.push(new TurtleState(current_state_ptr, GoStraight));
+            open_state_ptr_list.push(new TurtleState(current_state_ptr, GoAhead));
             open_state_ptr_list.push(new TurtleState(current_state_ptr, TurnLeft));
             closed_state_ptr_list.push_back(current_state_ptr);
             current_state_ptr = open_state_ptr_list.top();
