@@ -308,7 +308,8 @@ void Environment::init_turtles() {
     cout << "Initial turtles" << endl;
     kill_turtle("turtle1");
     spawn_turtle(0, 0, PI / 4, "turtle1");
-    std::srand(117);
+    /* std::srand(117); */
+    std::srand(107);
     for (int i = 1; i <= 3; ++i) {
         double x = 2 + double(rand()) / RAND_MAX * 8;
         double y = 2 + double(rand()) / RAND_MAX * 8;
