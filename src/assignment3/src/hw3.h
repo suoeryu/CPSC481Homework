@@ -46,6 +46,7 @@ std::ostream& operator<<(std::ostream& os, const Point& p) {
 class Rectangle {
     friend std::ostream& operator<<(std::ostream&, const Rectangle&);
 private:
+    Point center;
     Point bottom_left;
     Point top_right;
 
@@ -174,7 +175,7 @@ private:
     // list storing visited states.
     std::vector<const State*> closed_state_ptr_list;
 
-    bool is_visited(const Point& p) const;
+    bool is_visited(const Point& from, const Point& to) const;
 public:
     Heuristic(const std::vector<Turtle> & targets, const std::vector<Turtle> &villains);
     ~Heuristic();
@@ -202,6 +203,7 @@ private:
     bool spawn_turtle(double x, double y, double theta, std::string name);
 
     void set_speed(const Point &dest, geometry_msgs::Twist &vel_msg);
+    void check_capture();
 public:
     Environment(int argc, char *argv[]);
     const std::vector<Turtle> & get_targets() {
@@ -210,7 +212,6 @@ public:
     const std::vector<Turtle> & get_villains() {
         return villains;
     }
-    void init_turtles();
-    void check_capture();
-    void move_turtle1(const Point &pos);
+    void random_init_turtles(unsigned seed);
+    double move_turtle1(const Point &pos);
 };

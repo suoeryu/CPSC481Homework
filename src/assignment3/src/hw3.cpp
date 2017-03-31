@@ -2,6 +2,8 @@
 #include <cmath>
 #include <queue>
 #include <cstdlib>
+#include <string>
+#include <ctime>
 
 using namespace std;
 
@@ -11,11 +13,19 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
     Environment env(argc, argv);
-    env.init_turtles();
+    unsigned seed = argc < 2 ? time(NULL) : atoi(argv[1]);
+    /* unsigned seed = 107; */
+    env.random_init_turtles(seed);
     Heuristic heuristic(env.get_targets(), env.get_villains());
     vector<Point> move_path = heuristic.calculate_path();
-    for(vector<Point>::iterator it = move_path.begin(); it != move_path.end(); it++) {
-        env.move_turtle1(*it);
+    if(move_path.empty()) {
+        cout << "Cannot find out solution!!!" << endl;
+    } else {
+        double total_distance = 0;
+        for(vector<Point>::iterator it = move_path.begin(); it != move_path.end(); it++) {
+            total_distance += env.move_turtle1(*it);
+        }
+        cout << "Total moved " << total_distance << endl;
     }
     return 0;
 }
@@ -35,19 +45,26 @@ double Point::radian(const Point &p) const {
 }
 
 Rectangle::Rectangle(double center_x, double center_y, double range_factor)
-    : bottom_left(center_x - center_x * range_factor, center_y - center_y * range_factor),
+    : center(center_x, center_y),
+      bottom_left(center_x - center_x * range_factor, center_y - center_y * range_factor),
       top_right(center_x + center_x * range_factor, center_y + center_y * range_factor) {
-    double factor = 0.1;
+    double inner_factor = 0.03;
+    double outer_factor = 0.05;
 
-    inner_points.push_back(Point(bottom_left.x + factor, bottom_left.y + factor));
-    inner_points.push_back(Point(bottom_left.x + factor, top_right.y - factor));
-    inner_points.push_back(Point(top_right.x - factor, bottom_left.y + factor));
-    inner_points.push_back(Point(top_right.x - factor, top_right.y - factor));
+    inner_points.push_back(center);
+    inner_points.push_back(Point(center.x, bottom_left.y + inner_factor));
+    inner_points.push_back(Point(center.x, top_right.y - inner_factor));
+    inner_points.push_back(Point(bottom_left.x + inner_factor, bottom_left.y + inner_factor));
+    inner_points.push_back(Point(bottom_left.x + inner_factor, (bottom_left.y + top_right.y) / 2));
+    inner_points.push_back(Point(bottom_left.x + inner_factor, top_right.y - inner_factor));
+    inner_points.push_back(Point(top_right.x - inner_factor, bottom_left.y + inner_factor));
+    inner_points.push_back(Point(top_right.x - inner_factor, (bottom_left.y + top_right.y) / 2));
+    inner_points.push_back(Point(top_right.x - inner_factor, top_right.y - inner_factor));
 
-    outer_points.push_back(Point(bottom_left.x - factor, bottom_left.y - factor));
-    outer_points.push_back(Point(bottom_left.x - factor, top_right.y + factor));
-    outer_points.push_back(Point(top_right.x + factor, bottom_left.y - factor));
-    outer_points.push_back(Point(top_right.x + factor, top_right.y + factor));
+    outer_points.push_back(Point(bottom_left.x - outer_factor, bottom_left.y - outer_factor));
+    outer_points.push_back(Point(bottom_left.x - outer_factor, top_right.y + outer_factor));
+    outer_points.push_back(Point(top_right.x + outer_factor, bottom_left.y - outer_factor));
+    outer_points.push_back(Point(top_right.x + outer_factor, top_right.y + outer_factor));
 }
 
 Rectangle::Outcode Rectangle::compute_outcode(const Point & p) const {
@@ -106,7 +123,8 @@ State::State(const State * pre_ptr, const Point & pos)
       path_length(pre_ptr == NULL ? 0 : pre_ptr->path_length + pos.euclidean_distance(pre_ptr->pos)),
       pre_state_ptr(pre_ptr), villains(pre_ptr->villains) {
     for(vector<const Turtle*>::const_iterator it = pre_ptr->targets.begin(); it != pre_ptr->targets.end(); it++) {
-        if(!((*it)->impact(pos))) {
+        if(!((*it)->impact(pre_ptr->get_position(), pos))) {
+        /* if(!(*it)->impact(pos)) { */
             targets.push_back(*it);
         }
     }
@@ -143,48 +161,40 @@ vector<Point> State::get_possible_next_postion() const {
 }
 
 double State::estimate_remain_distance() const {
-    queue<vector<Point> > path_queue;
+    vector<Point> remain_path;
+    remain_path.push_back(pos);
     for(vector<const Turtle*>::const_iterator it = targets.begin(); it != targets.end(); it++) {
-        if(path_queue.empty()) {
-            vector<Point> cur_path;
-            cur_path.push_back((*it)->get_position());
-            path_queue.push(cur_path);
-        } else {
-            size_t front_size = path_queue.front().size();
-            while(path_queue.front().size() == front_size) {
-                for(size_t i = 0; i <= front_size; i++) {
-                    vector<Point> cur_path(path_queue.front());
-                    cur_path.insert(cur_path.begin() + i, (*it)->get_position());
-                    path_queue.push(cur_path);
-                }
-                path_queue.pop();
+        const Point& turtle_pos = (*it)->get_position();
+        double min_added_distance = -1;
+        vector<Point>::iterator it_p = remain_path.begin();
+        vector<Point>::iterator insert_it = it_p;
+        do {
+            it_p++;
+            double added_distance;
+            if(it_p == remain_path.end()) {
+                added_distance = (it_p - 1)->euclidean_distance(turtle_pos);
+            } else {
+                double distance1 = (it_p - 1)->euclidean_distance(turtle_pos);
+                double distance2 = turtle_pos.euclidean_distance(*it_p);
+                double orig_distance = (it_p - 1)->euclidean_distance(*it_p);
+                added_distance = distance1 + distance2 - orig_distance;
             }
-        }
+            if(min_added_distance < 0 || min_added_distance < added_distance) {
+                min_added_distance = added_distance;
+                insert_it = it_p;
+            }
+        } while (it_p != remain_path.end());
+        remain_path.insert(insert_it, turtle_pos);
     }
-    double min_dist = -1;
-    while(!path_queue.empty()) {
-        double dist = 0;
-        const Point* pre_pos = &pos;
-        for(vector<Point>::iterator it = path_queue.front().begin(); it != path_queue.front().end(); it++) {
-            dist += it->euclidean_distance(*pre_pos);
-            pre_pos = &(*it);
-        }
-        /* cout << dist; */
-        /* cout << endl; */
-        if(min_dist == -1 || min_dist > dist) {
-            min_dist = dist;
-        }
-        path_queue.pop();
+    double result = 0;
+    for(vector<Point>::iterator it = remain_path.begin(); it + 1 != remain_path.end(); it++) {
+        result += it->euclidean_distance(*(it + 1));
     }
-    /* cout << min_dist << endl; */
-    return min_dist;
+    return result;
 }
 
 Heuristic::Heuristic(const std::vector<Turtle> & targets, const std::vector<Turtle> &villains) {
-    /* cout << targets.size() << endl; */
-    /* cout << villains.size() << endl; */
     open_state_ptr_list.push(new State(targets, villains));
-    /* cout << "Init address: " << open_state_ptr_list.top() << endl; */
 }
 
 Heuristic::~Heuristic() {
@@ -199,11 +209,13 @@ Heuristic::~Heuristic() {
     }
 }
 
-bool Heuristic::is_visited(const Point& p) const {
+bool Heuristic::is_visited(const Point &from, const Point& to) const {
     for(vector<const State*>::const_iterator it = closed_state_ptr_list.begin();
             it != closed_state_ptr_list.end();
             it++) {
-        if((*it)->get_position() == p) {
+        if((*it)->get_pre_state() == NULL) {
+            continue;
+        } else if((*it)->get_pre_state()->get_position() == from && (*it)->get_position() == to) {
             return true;
         }
     }
@@ -212,12 +224,11 @@ bool Heuristic::is_visited(const Point& p) const {
 
 const vector<Point> Heuristic::calculate_path() {
     const State * current_state = open_state_ptr_list.top();
-    while(!current_state->is_final()) {
-        cout << current_state->get_position() << endl;
+    while(!current_state->is_final() && !open_state_ptr_list.empty()) {
         open_state_ptr_list.pop();
         vector<Point> next_positions = current_state->get_possible_next_postion();
         for(vector<Point>::iterator it = next_positions.begin(); it != next_positions.end(); it++) {
-            if(!is_visited(*it)){
+            if(!is_visited(current_state->get_position(), *it)) {
                 open_state_ptr_list.push(new State(current_state, *it));
             }
         }
@@ -225,12 +236,12 @@ const vector<Point> Heuristic::calculate_path() {
         current_state = open_state_ptr_list.top();
     }
     vector<Point> result_path;
-    /* if(current_state->is_final()) { */
-    while(!current_state->is_init()) {
-        result_path.insert(result_path.begin(), current_state->get_position());
-        current_state = current_state->get_pre_state();
+    if(current_state->is_final()) {
+        while(!current_state->is_init()) {
+            result_path.insert(result_path.begin(), current_state->get_position());
+            current_state = current_state->get_pre_state();
+        }
     }
-    /* } */
     return result_path;
 }
 
@@ -304,12 +315,14 @@ bool Environment::spawn_turtle(const Turtle &turtle, double theta) {
     return success;
 }
 
-void Environment::init_turtles() {
+void Environment::random_init_turtles(unsigned seed) {
     cout << "Initial turtles" << endl;
     kill_turtle("turtle1");
     spawn_turtle(0, 0, PI / 4, "turtle1");
+    /* std::srand(107); */
     /* std::srand(117); */
-    std::srand(107);
+    cout << "Seed: " << seed << endl;
+    std::srand(seed);
     for (int i = 1; i <= 3; ++i) {
         double x = 2 + double(rand()) / RAND_MAX * 8;
         double y = 2 + double(rand()) / RAND_MAX * 8;
@@ -317,15 +330,15 @@ void Environment::init_turtles() {
         name_os << 'T' << i;
         targets.push_back(Turtle(x, y, 0.05, name_os.str()));
     }
-    for(vector<Turtle>::const_iterator it = targets.begin(); it != targets.end(); it++) {
-        spawn_turtle(*it, PI / 2);
-    }
     for (int i = 1; i <= 4; ++i) {
         double x = 2 + double(rand()) / RAND_MAX * 8;
         double y = 2 + double(rand()) / RAND_MAX * 8;
         ostringstream name_os;
         name_os << 'X' << i;
         villains.push_back(Turtle(x, y, 0.1, name_os.str()));
+    }
+    for(vector<Turtle>::const_iterator it = targets.begin(); it != targets.end(); it++) {
+        spawn_turtle(*it, PI / 2);
     }
     for(vector<Turtle>::const_iterator it = villains.begin(); it != villains.end(); it++) {
         spawn_turtle(*it, -PI / 2);
@@ -339,10 +352,11 @@ void Environment::init_turtles() {
 }
 
 void Environment::set_speed(const Point &dest, geometry_msgs::Twist &vel_msg) {
+    const double error = 0.0001;
     double remain_distance = dest.euclidean_distance(turtlesim_pose.x, turtlesim_pose.y);
     if(remain_distance > 0.1) {
         vel_msg.linear.x = 1;
-    } else if (remain_distance < 0.000001) {
+    } else if (remain_distance < error) {
         vel_msg.linear.x = 0;
     } else {
         vel_msg.linear.x = remain_distance * 10;
@@ -353,11 +367,12 @@ void Environment::set_speed(const Point &dest, geometry_msgs::Twist &vel_msg) {
     } else if (rotate_radian > PI) {
         rotate_radian = 2 * PI - rotate_radian;
     }
-    vel_msg.angular.z = remain_distance > 0.01 ? 20 * rotate_radian : 0;
+    vel_msg.angular.z = remain_distance > 0.1 ? 30 * rotate_radian : 0;
 }
 
-void Environment::move_turtle1(const Point &dest) {
+double Environment::move_turtle1(const Point &dest) {
     cout << "Move to " << dest << endl;
+    double total_distance = 0;
     ros::Rate loop_rate(100);
     geometry_msgs::Twist vel_msg;
     vel_msg.linear.x = 0;
@@ -368,11 +383,15 @@ void Environment::move_turtle1(const Point &dest) {
     vel_msg.angular.z = 0;
     do {
         set_speed(dest, vel_msg);
+        double t0 = ros::Time::now().toSec();
         velocity_publisher.publish(vel_msg);
         ros::spinOnce();
         loop_rate.sleep();
+        double t1 = ros::Time::now().toSec();
+        total_distance += vel_msg.linear.x * (t1-t0);
         check_capture();
     } while (vel_msg.linear.x != 0);
+    return total_distance;
 }
 
 void Environment::check_capture() {
