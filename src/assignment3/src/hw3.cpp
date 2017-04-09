@@ -9,13 +9,21 @@ using namespace std;
 
 #include "turtlesim/Kill.h"
 #include "turtlesim/Spawn.h"
+#include "turtlesim/TeleportAbsolute.h"
+#include "std_srvs/Empty.h"
 #include "hw3.h"
 
 int main(int argc, char *argv[]) {
     Environment env(argc, argv);
-    unsigned seed = argc < 2 ? time(NULL) : atoi(argv[1]);
-    /* unsigned seed = 107; */
-    env.random_init_turtles(seed);
+    cout << argc << endl;
+    for (int i = 0; i < argc; ++i) {
+        cout << argv[i] << endl;
+    }
+    unsigned seed = time(NULL);
+    int targets_num = 3;
+    int villains_num = 4;
+    cout << seed << targets_num << villains_num << endl;
+    env.random_init_turtles(seed, targets_num, villains_num);
     Heuristic heuristic(env.get_targets(), env.get_villains());
     vector<Point> move_path = heuristic.calculate_path();
     if(move_path.empty()) {
@@ -131,6 +139,9 @@ State::State(const State * pre_ptr, const Point & pos)
 }
 
 bool State::is_acceptable(const Point &dest) const {
+    if(pos == dest){
+        return false;
+    }
     bool acceptable = true;
     for(vector<Turtle>::const_iterator it = villains.begin(); it != villains.end(); it++) {
         if(it->impact(pos, dest) || pos == dest) {
@@ -179,7 +190,7 @@ double State::estimate_remain_distance() const {
                 double orig_distance = (it_p - 1)->euclidean_distance(*it_p);
                 added_distance = distance1 + distance2 - orig_distance;
             }
-            if(min_added_distance < 0 || min_added_distance < added_distance) {
+            if(min_added_distance < 0 || min_added_distance > added_distance) {
                 min_added_distance = added_distance;
                 insert_it = it_p;
             }
@@ -277,18 +288,22 @@ Environment::Environment(int argc, char *argv[]) {
     //ROS will call poseCallBack when a new message arrives.
     pose_subscriber = n.subscribe("/turtle1/pose", 10, poseCallback);
 
+    reset_client = n.serviceClient<std_srvs::Empty>("reset");
     kill_client = n.serviceClient<turtlesim::Kill>("kill");
     spawn_client = n.serviceClient<turtlesim::Spawn>("spawn");
 
+}
+
+bool Environment::reset() {
+    std_srvs::Empty reset_srv;
+    return reset_client.call(reset_srv);
 }
 
 bool Environment::kill_turtle(string name) {
     turtlesim::Kill kill_srv;
     kill_srv.request.name = name;
     bool success = kill_client.call(kill_srv);
-    if(success) {
-        cout << "Killed turtle: " << name << endl;
-    } else {
+    if(!success) {
         cout << "Failed to kill turtle: " << name << endl;
     }
     return success;
@@ -315,24 +330,23 @@ bool Environment::spawn_turtle(const Turtle &turtle, double theta) {
     return success;
 }
 
-void Environment::random_init_turtles(unsigned seed) {
+void Environment::random_init_turtles(unsigned seed, int targets_num, int villains_num) {
     cout << "Initial turtles" << endl;
+    reset();
     kill_turtle("turtle1");
     spawn_turtle(0, 0, PI / 4, "turtle1");
-    /* std::srand(107); */
-    /* std::srand(117); */
-    cout << "Seed: " << seed << endl;
+    /* cout << "Seed: " << seed << endl; */
     std::srand(seed);
-    for (int i = 1; i <= 3; ++i) {
-        double x = 2 + double(rand()) / RAND_MAX * 8;
-        double y = 2 + double(rand()) / RAND_MAX * 8;
+    for (int i = 1; i <= targets_num; ++i) {
+        double x = 2 + double(rand()) / RAND_MAX * 9;
+        double y = 2 + double(rand()) / RAND_MAX * 9;
         ostringstream name_os;
         name_os << 'T' << i;
         targets.push_back(Turtle(x, y, 0.05, name_os.str()));
     }
-    for (int i = 1; i <= 4; ++i) {
-        double x = 2 + double(rand()) / RAND_MAX * 8;
-        double y = 2 + double(rand()) / RAND_MAX * 8;
+    for (int i = 1; i <= villains_num; ++i) {
+        double x = 2 + double(rand()) / RAND_MAX * 9;
+        double y = 2 + double(rand()) / RAND_MAX * 9;
         ostringstream name_os;
         name_os << 'X' << i;
         villains.push_back(Turtle(x, y, 0.1, name_os.str()));
@@ -400,6 +414,7 @@ void Environment::check_capture() {
         if(it->is_alive() && it->impact(pos)) {
             kill_turtle(it->get_name());
             it->kill();
+            cout << "Turtle1 has captured " << it->get_name() << endl;
         }
     }
     for(vector<Turtle>::const_iterator it = villains.begin(); it != villains.end(); it++) {

@@ -192,12 +192,14 @@ private:
 
     ros::Publisher velocity_publisher;
     ros::Subscriber pose_subscriber;
+    ros::ServiceClient reset_client;
     ros::ServiceClient kill_client;
     ros::ServiceClient spawn_client;
 
     std::vector<Turtle> targets;
     std::vector<Turtle> villains;
 
+    bool reset();
     bool kill_turtle(std::string name);
     bool spawn_turtle(const Turtle &turtle, double theta);
     bool spawn_turtle(double x, double y, double theta, std::string name);
@@ -212,6 +214,6 @@ public:
     const std::vector<Turtle> & get_villains() {
         return villains;
     }
-    void random_init_turtles(unsigned seed);
+    void random_init_turtles(unsigned seed, int targets_num, int villains_num);
     double move_turtle1(const Point &pos);
 };
