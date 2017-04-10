@@ -132,14 +132,17 @@ State::State(const State * pre_ptr, const Point & pos)
       pre_state_ptr(pre_ptr), villains(pre_ptr->villains) {
     for(vector<const Turtle*>::const_iterator it = pre_ptr->targets.begin(); it != pre_ptr->targets.end(); it++) {
         if(!((*it)->impact(pre_ptr->get_position(), pos))) {
-        /* if(!(*it)->impact(pos)) { */
+            /* if(!(*it)->impact(pos)) { */
             targets.push_back(*it);
         }
     }
 }
 
 bool State::is_acceptable(const Point &dest) const {
-    if(pos == dest){
+    if(pos == dest) {
+        return false;
+    }
+    if(dest.get_x() > 11 || dest.get_y() > 11 || dest.get_x() < 0 || dist.get_y() < 0) {
         return false;
     }
     bool acceptable = true;
@@ -331,6 +334,9 @@ bool Environment::spawn_turtle(const Turtle &turtle, double theta) {
 }
 
 void Environment::random_init_turtles(unsigned seed, int targets_num, int villains_num) {
+    ros::service::waitForService("reset");
+    ros::service::waitForService("kill");
+    ros::service::waitForService("spawn");
     cout << "Initial turtles" << endl;
     reset();
     kill_turtle("turtle1");
@@ -402,7 +408,7 @@ double Environment::move_turtle1(const Point &dest) {
         ros::spinOnce();
         loop_rate.sleep();
         double t1 = ros::Time::now().toSec();
-        total_distance += vel_msg.linear.x * (t1-t0);
+        total_distance += vel_msg.linear.x * (t1 - t0);
         check_capture();
     } while (vel_msg.linear.x != 0);
     return total_distance;
