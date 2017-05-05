@@ -142,7 +142,7 @@ bool State::is_acceptable(const Point &dest) const {
     if(pos == dest) {
         return false;
     }
-    if(dest.get_x() > 11 || dest.get_y() > 11 || dest.get_x() < 0 || dist.get_y() < 0) {
+    if(dest.get_x() > 11 || dest.get_y() > 11 || dest.get_x() < 0 || dest.get_y() < 0) {
         return false;
     }
     bool acceptable = true;
