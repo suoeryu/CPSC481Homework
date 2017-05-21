@@ -1,7 +1,7 @@
 // In order to properly test your program, do the followings:
 // (1) open a turtlesim window
 // (2) run this program on another terminal
-// (3) run your program on another terminal 
+// (3) run your program on another terminal
 //-----------------------------------------------------------
 #include <sstream>
 #include <ros/ros.h>
@@ -82,7 +82,7 @@ bool topicExist(const string topicname) {
   string tname;
   ros::master::V_TopicInfo alltopics;
 
-  //get all topic names 
+  //get all topic names
   ros::master::getTopics(alltopics);
 
   for (int i=0; i<alltopics.size(); i++) {
@@ -99,7 +99,7 @@ bool turtleExist(const string turtlename) {
   string tname;
   ros::master::V_TopicInfo alltopics;
 
-  //get all topic names 
+  //get all topic names
   ros::master::getTopics(alltopics);
 
   for (int i=0; i<alltopics.size(); i++) {
@@ -121,7 +121,7 @@ turtlesim::Pose getNonOverlappingPoint(char tType) {
   xp.y = double((rand() % 10) + 1.0);
 
   while (true) {
-    if (HW::isTooClose(HW::turtle1.pose.x, HW::turtle1.pose.y, xp.x, xp.y, DANGER_TOLERANCE)) 
+    if (HW::isTooClose(HW::turtle1.pose.x, HW::turtle1.pose.y, xp.x, xp.y, DANGER_TOLERANCE))
         tooclose = true;
     else if (tType == 'T')
             break; //out of while loop
@@ -139,7 +139,7 @@ turtlesim::Pose getNonOverlappingPoint(char tType) {
 
     if (ocnt>1000) { //only to check abnormality
        ROS_INFO_STREAM("chk: " << xp.x << "," << xp.y << "\n");
-       break; //possibly wrong so exit 
+       break; //possibly wrong so exit
     };
     //generate another random pose
     xp.x = double((rand() % 10) + 1.0);
@@ -201,10 +201,10 @@ void createTurtles(char tType, int cnt) {
         if(success) {
            if (tType == 'X')
               ROS_INFO("%s landed with face down.", req.name.c_str()); //X turtle
-           else 
+           else
               ROS_INFO("%s landed with face up.", req.name.c_str()); //T turtle
         }
-        else { 
+        else {
           ROS_ERROR_STREAM("Error: Failed to create " << tType << " turtle.");
           ros::shutdown();
         }
@@ -214,11 +214,11 @@ void createTurtles(char tType, int cnt) {
         cmdstr.str("");
         cmdstr << "rosservice call /";
         cmdstr << req.name.c_str() << "/teleport_absolute " << req.x << " " << req.y << " " << req.theta;
-        system(cmdstr.str().c_str()); 
+        system(cmdstr.str().c_str());
         ROS_INFO_STREAM(req.name.c_str() << " already landed, so it's teleported!\n");
      };
   };
-} 
+}
 
 double getDistance(const double x1, const double y1, const double x2, const double y2) {
   return sqrt(pow((x1-x2),2) + pow(y1-y2, 2));
@@ -234,7 +234,7 @@ bool isTooClose(double x1, double y1, double x2, double y2, double threshhold) {
 bool isOffBoundary(double x, double y) {
   if (x <= LOWER_LIMIT || x > UPPER_LIMIT || y <= LOWER_LIMIT || y > UPPER_LIMIT)
      return true;
-  else 
+  else
      return false;
 }
 
@@ -375,7 +375,7 @@ cout << t.turtlename << ": " << t.pose.x << "," << t.pose.y << "," << t.pose.the
 
 class Turtle1Listener {
   public:
-    void doTest(const turtlesim::Pose::ConstPtr& msg); 
+    void doTest(const turtlesim::Pose::ConstPtr& msg);
   private:
     bool chkIfOffBoundary();
     bool chkIsTooClose();
@@ -392,8 +392,8 @@ void Turtle1Listener::doTest(const turtlesim::Pose::ConstPtr& msg) {
      HW::turtle1Origin.x = msg->x;
      HW::turtle1Origin.y = msg->y;
      HW::turtle1MoveCnt++;
-  } else if (HW::getDistance(HW::turtle1.pose.x, HW::turtle1.pose.y, HW::turtle1Origin.x, HW::turtle1Origin.y) > DANGER_TOLERANCE) { 
-     HW::isTurtle1Moved = true;  
+  } else if (HW::getDistance(HW::turtle1.pose.x, HW::turtle1.pose.y, HW::turtle1Origin.x, HW::turtle1Origin.y) > DANGER_TOLERANCE) {
+     HW::isTurtle1Moved = true;
      //cout << "Turtle1 moved to (" << msg->x << "," << msg->y << ")\n";
   };
 
@@ -404,7 +404,7 @@ void Turtle1Listener::doTest(const turtlesim::Pose::ConstPtr& msg) {
   //test case2
   if (chkIsTooClose())
      HW::removeTurtle1();
-}; 
+};
 
 bool Turtle1Listener::chkIfOffBoundary() {
   if (HW::isOffBoundary(HW::turtle1.pose.x, HW::turtle1.pose.y)) {
@@ -434,8 +434,8 @@ bool Turtle1Listener::chkIsTooClose() {
 
 /// TTurtleListener ///
 class TTurtleListener {
-  public: 
-    void doTest(const turtlesim::Pose::ConstPtr& msg, const string turtlename); 
+  public:
+    void doTest(const turtlesim::Pose::ConstPtr& msg, const string turtlename);
   private:
     bool isTooClose(int ti);
 };
@@ -453,7 +453,7 @@ void TTurtleListener::doTest(const turtlesim::Pose::ConstPtr& msg, const string 
   if (isTooClose(turtleIdx)) {
      ;//HW::removeTurtle1();
   };
-}; 
+};
 
 //when a tturtle moves, check the turtle1's location
 bool TTurtleListener::isTooClose(int ti) {
@@ -461,7 +461,7 @@ bool TTurtleListener::isTooClose(int ti) {
   bool tooclose = false;
 
   dist = HW::getDistance(HW::tturtles[ti].pose.x, HW::tturtles[ti].pose.y, HW::turtle1.pose.x, HW::turtle1.pose.y);
-  if (dist <= DANGER_TOLERANCE) { 
+  if (dist <= DANGER_TOLERANCE) {
      tooclose = true;
      ROS_INFO_STREAM(HW::tturtles[ti].turtlename << " is too close with distance = " << dist);
      ROS_INFO_STREAM("It may be captured by turtle1.");
@@ -471,8 +471,8 @@ bool TTurtleListener::isTooClose(int ti) {
 
 /// XTurtleListener ///
 class XTurtleListener {
-  public: 
-    void doTest(const turtlesim::Pose::ConstPtr& msg, const string turtlename); 
+  public:
+    void doTest(const turtlesim::Pose::ConstPtr& msg, const string turtlename);
   private:
     bool isTooClose(int ti);
 };
@@ -489,7 +489,7 @@ void XTurtleListener::doTest(const turtlesim::Pose::ConstPtr& msg, const string 
   if (isTooClose(turtleIdx)) {
      HW::removeTurtle1();
   };
-}; 
+};
 
 //when a xturtle moves, check the turtle1's location
 bool XTurtleListener::isTooClose(int ti) {
@@ -497,7 +497,7 @@ bool XTurtleListener::isTooClose(int ti) {
   bool tooclose = false;
 
   dist = HW::getDistance(HW::xturtles[ti].pose.x, HW::xturtles[ti].pose.y, HW::turtle1.pose.x, HW::turtle1.pose.y);
-  if (dist <= DANGER_TOLERANCE) { 
+  if (dist <= DANGER_TOLERANCE) {
      tooclose = true;
      ROS_INFO_STREAM("Turtle1 was too close to " << HW::xturtles[ti].turtlename << " with distance = " << dist);
      ROS_INFO_STREAM("turtle1 was captured.");
@@ -507,7 +507,7 @@ bool XTurtleListener::isTooClose(int ti) {
 
 /// Turtles Behavior ///
 class TurtlesBehavior {
-  public: 
+  public:
     TurtlesBehavior(ros::Publisher* tpubs, ros::Publisher* xpubs) {
       _tpubs = tpubs;
       _xpubs = xpubs;
@@ -518,21 +518,21 @@ class TurtlesBehavior {
       int speed = rand() % 2 + 1;
       int rdir = rand() % 3; //for various rotations
       int distance = rand() % 20 + 1;
-      ros::Rate loop_rate(LOOP_SPEED); 
+      ros::Rate loop_rate(LOOP_SPEED);
 
       while (ros::ok()) {
-        if (loopCnt >= 10) 
-           loopCnt=1; 
+        if (loopCnt >= 10)
+           loopCnt=1;
         movePattern1(HW::tturtles[0], _tpubs[0], speed, distance); //T1
         movePattern1(HW::xturtles[0], _xpubs[0], speed, distance); //X1
         movePattern1(HW::xturtles[1], _xpubs[1], speed, distance); //X2
-        movePattern2(HW::tturtles[1], _tpubs[1], speed, distance, loopCnt, HW::xturtles[2], _xpubs[2]); //T2 
-        movePattern3(HW::tturtles[2], _tpubs[2], speed, distance, rdir); //T3 
+        movePattern2(HW::tturtles[1], _tpubs[1], speed, distance, loopCnt, HW::xturtles[2], _xpubs[2]); //T2
+        movePattern3(HW::tturtles[2], _tpubs[2], speed, distance, rdir); //T3
         loop_rate.sleep();
         loopCnt++;
       };
     };
-  private: 
+  private:
     ros::Publisher* _tpubs;
     ros::Publisher* _xpubs;
     void movePattern1(HW::Turtle& turtle, ros::Publisher& pub, int speed, int distance);
@@ -548,7 +548,7 @@ void TurtlesBehavior::movePattern1(HW::Turtle& turtle, ros::Publisher& pub, int 
   };
 };
 
-void TurtlesBehavior::movePattern2(HW::Turtle& tturtle, ros::Publisher& tpub, 
+void TurtlesBehavior::movePattern2(HW::Turtle& tturtle, ros::Publisher& tpub,
      int speed, int distance, int loopCnt, HW::Turtle& xturtle, ros::Publisher& xpub) {
   turtlesim::Pose goal_pose;
   goal_pose.x = HW::turtle1.pose.x;
@@ -589,7 +589,7 @@ void TurtlesBehavior::movePattern3(HW::Turtle& tturtle, ros::Publisher& tpub, in
 
 ////////////////
 class HWTest {
-  public: 
+  public:
     HWTest(ros::NodeHandle* anh) {
       _nh = *anh;
     };
@@ -598,7 +598,7 @@ class HWTest {
     void startTest();
 
   private:
-    ros::NodeHandle _nh; 
+    ros::NodeHandle _nh;
     ros::Subscriber _turtle1sub;
     ros::Subscriber _tturtlesubs[MAX_TTURTLES];
     ros::Subscriber _xturtlesubs[MAX_XTURTLES];
@@ -628,15 +628,15 @@ void HWTest::init() {
   HW::createTurtles('T', MAX_TTURTLES);
   HW::createTurtles('X', MAX_XTURTLES);
 
-  //create turtle1 subsriber 
-  _turtle1sub = _nh.subscribe<turtlesim::Pose>(HW::turtle1.posetopic, 1000, &Turtle1Listener::doTest, &_turtle1listener); 
+  //create turtle1 subsriber
+  _turtle1sub = _nh.subscribe<turtlesim::Pose>(HW::turtle1.posetopic, 1000, &Turtle1Listener::doTest, &_turtle1listener);
 
-  //create tturtle subsribers 
+  //create tturtle subsribers
   for (i=0; i<MAX_TTURTLES; i++) {
      _tturtlesubs[i] = _nh.subscribe<turtlesim::Pose>(HW::tturtles[i].posetopic, 1000, boost::bind(&TTurtleListener::doTest, &_tturtlelisteners[i], _1, HW::tturtles[i].turtlename));
   };
 
-  //create xturtle subsribers 
+  //create xturtle subsribers
   for (i=0; i<MAX_XTURTLES; i++) {
      _xturtlesubs[i] = _nh.subscribe<turtlesim::Pose>(HW::xturtles[i].posetopic, 1000, boost::bind(&XTurtleListener::doTest, &_xturtlelisteners[i], _1, HW::xturtles[i].turtlename));
   };
@@ -644,7 +644,7 @@ void HWTest::init() {
   //create turtle1 publisher
   _turtle1pub = _nh.advertise<geometry_msgs::Twist>(HW::turtle1.veltopic, 1000);
 
-  //create tturtle publishers 
+  //create tturtle publishers
   for (i=0; i<MAX_TTURTLES; i++) {
       cmdstr.clear();
       cmdstr.str("");
@@ -654,7 +654,7 @@ void HWTest::init() {
       _tturtlepubs[i] = _nh.advertise<geometry_msgs::Twist>(HW::tturtles[i].veltopic, 1000);
   };
 
-  //create xturtle publishers 
+  //create xturtle publishers
   for (i=0; i<MAX_XTURTLES; i++) {
       cmdstr.clear();
       cmdstr.str("");
@@ -670,7 +670,7 @@ void HWTest::startTest() {
   ROS_INFO_STREAM("1. turtle1 will be removed if it moves off the limit (" << LOWER_LIMIT << "," << LOWER_LIMIT << ") and (" << UPPER_LIMIT << "," << UPPER_LIMIT << ")");
   ROS_INFO_STREAM("2. turtle1 can capture T turtle within the distance " << DANGER_TOLERANCE);
   ROS_INFO_STREAM("3. X turtle will capture turtle1 within the distance " << DANGER_TOLERANCE);
-  ROS_INFO_STREAM("As soon as turtle1 starts moving, T and X turtles will move."); 
+  ROS_INFO_STREAM("As soon as turtle1 starts moving, T and X turtles will move.");
   ROS_INFO_STREAM("-----------------------------------------------");
 
   //create a turtle behavior object
@@ -682,10 +682,10 @@ void HWTest::startTest() {
      ros::spinOnce(); //this is necessary for subscribing topics
      loop_rate.sleep();
 
-     if (HW::isTurtle1Moved) { 
-        // TurtlesBehavior class could have been created as a library 
+     if (HW::isTurtle1Moved) {
+        // TurtlesBehavior class could have been created as a library
         // to hide the implementation of behavior patterns in begin() method.
-        tb.begin(); 
+        tb.begin();
         break;
      }; //else we will wait until turtle1 moves
   };

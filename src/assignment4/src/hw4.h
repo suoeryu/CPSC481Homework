@@ -8,6 +8,7 @@
 #include "geometry_msgs/Twist.h"
 #include "turtlesim/Pose.h"
 
+const double PI = 3.14159265359;
 struct Point {
     double x;
     double y;

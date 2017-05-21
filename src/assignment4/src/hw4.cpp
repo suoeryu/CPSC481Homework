@@ -89,10 +89,10 @@ bool Rectangle::is_linesegment_in(const Point &p1, const Point &p2) const {
 
 vector<Point> Rectangle::get_outer_corners() const {
     vector<Point> result;
-    result.push_back(Point(bottom_left.x - 0.1, bottom_left.y - 0.1));
-    result.push_back(Point(top_right.x + 0.1, bottom_left.y - 0.1));
-    result.push_back(Point(top_right.x + 0.1, top_right.y + 0.1));
-    result.push_back(Point(bottom_left.x - 0.1, top_right.y + 0.1));
+    result.push_back(Point(bottom_left.x - 0.2, bottom_left.y - 0.2));
+    result.push_back(Point(top_right.x + 0.2, bottom_left.y - 0.2));
+    result.push_back(Point(top_right.x + 0.2, top_right.y + 0.2));
+    result.push_back(Point(bottom_left.x - 0.2, top_right.y + 0.2));
     return result;
 }
 
@@ -164,44 +164,68 @@ Point Turtle::predict_pos(double dur_time) const {
             dy = dy + 2 * lx * tan(direction);
         }
     }
+    if(dx <= 0) {
+        dx += 0.1;
+    } else if (dx >= 11) {
+        dx -= 0.1;
+    }
+    if(dy <= 0) {
+        dy += 0.1;
+    } else if (dy >= 11) {
+        dy -= 0.1;
+    }
     return Point(dx, dy);
 }
 
 Rectangle Turtle::predict_scope(double dur_time) const {
+    double x1 = position.x, y1 = position.y;
+    double x2 = x1, y2 = y1;
     double distance = speed * dur_time;
-    double dx = position.x + distance * sin(direction);
-    double dy = position.y + distance * cos(direction);
+    double dx = x1 + distance * sin(direction);
+    double dy = y1 + distance * cos(direction);
     double theta0 = position.direct(Point(0, 0));
     double theta1 = position.direct(Point(11, 0));
     double theta2 = position.direct(Point(11, 11));
     double theta3 = position.direct(Point(0, 11));
     if(direction >= theta0 && direction < theta1) {
         if(dy < 0) {
-            double ly = -dy;
-            dy = 0;
-            dx = dx + ly / tan(direction);
+            double y_inc = -dy;
+            double x_inc = y_inc / tan(direction);
+            dx = dx + x_inc;
+            dy = dy + y_inc;
+            x2 = dx + x_inc;
+            y2 = dy + y_inc;
         }
     } else if (direction >= theta1 && direction < theta2) {
         if(dx > 11) {
-            double lx = dx - 11;
-            dx = 11;
-            dy = dy - lx * tan(direction);
+            double x_inc = 11 - dx;
+            double y_inc = x_inc * tan(direction);
+            dx = dx + x_inc;
+            dy = dy + y_inc;
+            x2 = dx + x_inc;
+            y2 = dy + y_inc;
         }
     } else if (direction >= theta2 && direction < theta3) {
         if(dy > 11) {
-            double ly = dy - 11;
-            dy = 11;
-            dx = dx - ly / tan(direction);
+            double y_inc = 11 - dy;
+            double x_inc = y_inc / tan(direction);
+            dx = dx + x_inc;
+            dy = dy + y_inc;
+            x2 = dx + x_inc;
+            y2 = dy + y_inc;
         }
     } else {
         if(dx < 0) {
-            double lx = -dx;
-            dx = 0;
-            dy = dy + lx * tan(direction);
+            double x_inc = -dx;
+            double y_inc = x_inc * tan(direction);
+            dx = dx + x_inc;
+            dy = dy + y_inc;
+            x2 = dx + x_inc;
+            y2 = dy + y_inc;
         }
     }
-    return Rectangle(fmin(position.x, dx) - 0.5, fmin(position.y, dy) - 0.5,
-                     fmax(position.x, dx) + 0.5, fmax(position.y, dy) + 0.5);
+    return Rectangle(fmin(x1, fmin(x2, dx)) - 0.5, fmin(y1, fmax(y2, dy)) - 0.5,
+                     fmax(x1, fmax(x2, dx)) + 0.5, fmax(y1, fmax(y2, dy)) + 0.5);
 }
 
 ostream& operator<<(ostream& out, const Turtle& turtle) {
@@ -232,7 +256,7 @@ void TurtleDriver::capture_targets() {
             }
         }
         capture(*min_it);
-        cout << "Capture " << *min_it << endl;
+        cout << "Capture " << (*min_it)->getName() << endl;
         targets.erase(min_it);
     }
 }
@@ -259,16 +283,11 @@ void TurtleDriver::capture(const Turtle* target) {
             double dur_time = distance / speed;
             dest = target->predict_pos(dur_time);
             dest = calculate_tmp_dest(dest, dur_time);
-            if(dest.is_in_boundary()) {
-                set_vel_msg(vel_msg, dest);
-            } else {
-                vel_msg.linear.x = 0;
-                vel_msg.angular.z = 0;
-            }
-            velocity_publisher.publish(vel_msg);
-            ros::spinOnce();
-            loop_rate.sleep();
         }
+        set_vel_msg(vel_msg, dest);
+        velocity_publisher.publish(vel_msg);
+        ros::spinOnce();
+        loop_rate.sleep();
     }
     vel_msg.angular.z = 0;
     vel_msg.linear.x = 0;
@@ -334,7 +353,21 @@ bool TurtleDriver::is_captured(const Point& s, const Point& e, vector<Rectangle>
 }
 
 void TurtleDriver::set_vel_msg(geometry_msgs::Twist& vel_msg, const Point& dest) {
-    double direction = turtle->getPosition().direct(dest);
-    vel_msg.angular.z = (direction - turtle->getTheta()) * 20;
-    vel_msg.linear.x = speed;
+    if(dest.distance(turtle->getPosition()) < 0.01 || !dest.is_in_boundary()) {
+        vel_msg.linear.x = 0;
+        vel_msg.angular.z = 0;
+    } else {
+        vel_msg.linear.x = speed;
+        double direction = turtle->getPosition().direct(dest);
+        double rotate_theta = direction - turtle->getTheta();
+        if (rotate_theta > PI) {
+            rotate_theta =  rotate_theta - 2 * PI;
+        } else if (rotate_theta < -PI) {
+            rotate_theta =  rotate_theta + 2 * PI;
+        }
+        vel_msg.angular.z = 20 * rotate_theta;
+        /* vel_msg.angular.z = abs(rotate_speed) > 10 ? 10 * abs(rotate_speed) / rotate_speed : rotate_speed; */
+        /* cout << vel_msg.angular.z << endl; */
+
+    }
 }
