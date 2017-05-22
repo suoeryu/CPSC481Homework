@@ -28,8 +28,10 @@ class Rectangle {
 public:
     Rectangle (double x1, double y1, double x2, double y2): bottom_left(x1, y1), top_right(x2, y2) {};
 
+    bool is_point_in(const Point &p) const;
     bool is_linesegment_in(const Point &p1, const Point &p2) const;
 
+    Point get_nearest_outer_corner(const Point& p) const;
     std::vector<Point> get_outer_corners() const;
 private:
     Point bottom_left;

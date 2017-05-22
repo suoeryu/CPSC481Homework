@@ -9,19 +9,18 @@ int main(int argc, char *argv[]) {
     ros::init(argc, argv, "hw4");
     ros::NodeHandle n;
     Turtle turtle1("turtle1", n);
-    Turtle x1("X1", n);
-    Turtle x2("X2", n);
-    Turtle x3("X3", n);
     Turtle t1("T1", n);
     Turtle t2("T2", n);
     Turtle t3("T3", n);
+    Turtle x1("X1", n);
+    Turtle x2("X2", n);
+    Turtle x3("X3", n);
     ros::Rate loop_rate(10);
     for (int i = 0; i < 5; ++i) {
         ros::spinOnce();
-        //Enforces loop rate by sleeping the cycle
         loop_rate.sleep();
     }
-    TurtleDriver td(&turtle1, 3, n);
+    TurtleDriver td(&turtle1, 4, n);
     td.add_target(&t1);
     td.add_target(&t2);
     td.add_target(&t3);
@@ -63,6 +62,10 @@ Rectangle::Outcode Rectangle::compute_outcode(const Point & p) const {
     return code;
 }
 
+bool Rectangle::is_point_in(const Point& p) const {
+    return compute_outcode(p) == INSIDE;
+}
+
 bool Rectangle::is_linesegment_in(const Point &p1, const Point &p2) const {
     Outcode code1 = compute_outcode(p1);
     Outcode code2 = compute_outcode(p2);
@@ -93,6 +96,22 @@ vector<Point> Rectangle::get_outer_corners() const {
     result.push_back(Point(top_right.x + 0.2, bottom_left.y - 0.2));
     result.push_back(Point(top_right.x + 0.2, top_right.y + 0.2));
     result.push_back(Point(bottom_left.x - 0.2, top_right.y + 0.2));
+    return result;
+}
+
+Point Rectangle::get_nearest_outer_corner(const Point& p) const {
+    vector<Point> corners = get_outer_corners();
+    double min_distance = -1;
+    Point result;
+    for(vector<Point>::iterator it = corners.begin(); it != corners.end(); it++) {
+        if(it->is_in_boundary()) {
+            double d = it->distance(p);
+            if(min_distance < 0 || d < min_distance) {
+                min_distance = d;
+                result = *it;
+            }
+        }
+    }
     return result;
 }
 
@@ -278,12 +297,9 @@ void TurtleDriver::capture(const Turtle* target) {
     double distance;
     Point dest;
     while((distance = turtle->getPosition().distance(target->getPosition())) > 0.4) {
-        if(i++ % 10 == 0) {
-            i /= 10;
-            double dur_time = distance / speed;
-            dest = target->predict_pos(dur_time);
-            dest = calculate_tmp_dest(dest, dur_time);
-        }
+        double dur_time = distance / speed;
+        dest = target->predict_pos(dur_time);
+        dest = calculate_tmp_dest(dest, dur_time);
         set_vel_msg(vel_msg, dest);
         velocity_publisher.publish(vel_msg);
         ros::spinOnce();
@@ -297,18 +313,23 @@ void TurtleDriver::capture(const Turtle* target) {
 }
 
 Point TurtleDriver::calculate_tmp_dest(const Point& dest, double dur_time) {
+    Point cur_pos = turtle->getPosition();
     vector<Rectangle> villain_scopes;
     for(vector<const Turtle*>::iterator it = villains.begin(); it != villains.end(); it++) {
         Rectangle scope = (*it)->predict_scope(dur_time);
+        if(scope.is_point_in(cur_pos)){
+            return scope.get_nearest_outer_corner(cur_pos);
+        }
+        if(scope.is_point_in(dest)){
+            return cur_pos;
+        }
         /* cout << scope << endl; */
         villain_scopes.push_back(scope);
     }
-    if(is_captured(turtle->getPosition(), dest, villain_scopes)) {
+    if(is_captured(cur_pos, dest, villain_scopes)) {
         /* cout << "Captured!!" << endl; */
         double min_distance = -1;
         Point tmp_dest = Point(-1, -1);
-        double nearest_distance = -1;
-        Point nearest_dest;
         for(vector<Rectangle>::iterator rit = villain_scopes.begin(); rit != villain_scopes.end(); rit++) {
             vector<Point> corners = rit->get_outer_corners();
             for(vector<Point>::iterator pit = corners.begin(); pit != corners.end(); pit++) {
@@ -316,17 +337,12 @@ Point TurtleDriver::calculate_tmp_dest(const Point& dest, double dur_time) {
                     /* cout << *pit << endl; */
                     if(!is_captured(turtle->getPosition(), *pit, villain_scopes)
                             && !is_captured(*pit, dest, villain_scopes)) {
-                        double tmp_distance = pit->distance(turtle->getPosition()) + pit->distance(dest);
+                        double tmp_distance = pit->distance(cur_pos) + pit->distance(dest);
                         if(min_distance < 0 || tmp_distance < min_distance) {
                             min_distance = tmp_distance;
                             tmp_dest = *pit;
                             /* cout << "TMP: " << tmp_dest << endl; */
                         }
-                    }
-                    double d = pit->distance(turtle->getPosition());
-                    if(nearest_distance < 0 || d < nearest_distance) {
-                        nearest_distance = d;
-                        nearest_dest = *pit;
                     }
                 }
             }
@@ -334,7 +350,7 @@ Point TurtleDriver::calculate_tmp_dest(const Point& dest, double dur_time) {
         if(tmp_dest.is_in_boundary()) {
             return tmp_dest;
         } else {
-            return nearest_dest;
+            return cur_pos;
         }
     } else {
         return dest;
